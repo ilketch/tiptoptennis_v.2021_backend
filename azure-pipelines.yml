@@ -1,0 +1,55 @@
+#trigger:
+  #  - dev
+schedules:
+    - cron: 0 1 * * *
+      displayName: Nightly Build
+      branches:
+        include:
+        - dev
+      always: false
+
+parameters:
+    - name: RestoreBuildProject
+      default: '**/*.csproj'
+    - name: TestProjects
+      default: '**/*.csproj'
+    - name: projects
+      default: '**/*.csproj'
+      
+pool:
+    vmImage: 'windows-2019'
+
+steps:
+    - task: UseDotNet@2
+      inputs:
+        version: '5.0.x'
+    - task: DotNetCoreCLI@2
+      displayName: Restore
+      inputs:
+        command: restore
+        projects: ${{ Parameters.RestoreBuildProject }}
+    - task: DotNetCoreCLI@2
+      displayName: Build
+      inputs:
+        command: build
+        projects: ${{ Parameters.RestoreBuildProject }}
+        arguments: -c Debug
+    - task: DotNetCoreCLI@2
+      displayName: Publish
+      inputs:
+        command: publish
+        publishWebProjects: True
+        projects: ${{ Parameters.RestoreBuildProject }}
+        arguments: -c Release --output "$(Build.ArtifactStagingDirectory)"
+        zipAfterPublish: True
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifact
+      inputs:
+        PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+    - task: AzureRmWebAppDeployment@4
+      inputs:
+        ConnectionType: 'AzureRM'
+        azureSubscription: 'Pagamento in base al consumo(a8e8e877-7fb6-48f5-917c-b5e7643df5cc)'
+        appType: 'webApp'
+        WebAppName: 'tiptoptennisbackend'
+        packageForLinux: '$(Build.ArtifactStagingDirectory)/*.zip'
